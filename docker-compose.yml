@@ -1,0 +1,54 @@
+services:
+  db:
+    build: ./db          # postgis/postgis + pgRouting (ver db/Dockerfile)
+    image: routing-db
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      # Porta do container é 5432 (usada internamente por backend -> db:5432).
+      # Publicada em 5433 no host porque 5432 já está ocupada por outro
+      # container nesta máquina. Ajuste para "5432:5432" se liberar a porta.
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mydatabase"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - routing-net
+
+  backend:
+    build: ./backend
+    environment:
+      DB_HOST: db          # nome do serviço, não localhost
+      DB_PORT: "5432"
+      DB_NAME: mydatabase
+      DB_USER: postgres
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - routing-net
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - routing-net
+
+volumes:
+  db_data:
+
+networks:
+  routing-net:
+    driver: bridge

@@ -1,0 +1,32 @@
+# Ambiente
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Node
+node_modules/
+dist/
+build/
+
+# Dados grandes (nao subir o PBF nem dumps)
+*.osm.pbf
+*.osm
+*.sql.gz
+*.backup
+*.bak
+*.bak2
+
+# Backups do proprio codigo
+main.py.backup
+App.jsx.backup
+App.jsx.bak*
+
+# IDE
+.idea/
+.vscode/
+*.bak-*
