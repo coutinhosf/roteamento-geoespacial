@@ -32,7 +32,24 @@ DB_CONFIG = {
     "password": os.getenv("DB_PASSWORD", "postgres"),
 }
 
-COMPONENT = 37
+# Maior componente conectado da malha nacional. O importer grava o valor na
+# tabela config_roteamento após o pgr_createTopology; o fallback via variável
+# de ambiente cobre bancos antigos que não têm a tabela.
+COMPONENT_FALLBACK = int(os.getenv("COMPONENT", "37"))
+_componente_nacional_cache = None
+
+
+def componente_nacional(cur) -> int:
+    global _componente_nacional_cache
+    if _componente_nacional_cache is None:
+        try:
+            cur.execute("SELECT valor FROM config_roteamento WHERE chave = 'componente_nacional'")
+            row = cur.fetchone()
+            _componente_nacional_cache = int(row[0]) if row else COMPONENT_FALLBACK
+        except Exception:
+            cur.connection.rollback()
+            _componente_nacional_cache = COMPONENT_FALLBACK
+    return _componente_nacional_cache
 
 
 def get_conn():
@@ -198,7 +215,7 @@ def find_nearest_vertex(cur, lng: float, lat: float) -> int:
         ) c ON v.id = c.node
         ORDER BY v.the_geom <-> ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 3857)
         LIMIT 1
-    """, (COMPONENT, lng, lat))
+    """, (componente_nacional(cur), lng, lat))
     row = cur.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="Vértice não encontrado")
@@ -616,7 +633,7 @@ def calcular_rota(req: RouteRequest):
             id_destino = find_nearest_vertex(cur, req.destino_lng, req.destino_lat)
             sql = build_route_sql(req.algoritmo, id_origem, id_destino)
             malha = {"tipo": "nacional", "slug": None, "nome": "Malha nacional",
-                     "tabela": "planet_osm_roads", "componente": COMPONENT}
+                     "tabela": "planet_osm_roads", "componente": componente_nacional(cur)}
 
         start = time.time()
         cur.execute(sql)

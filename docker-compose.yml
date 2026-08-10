@@ -21,6 +21,37 @@ services:
     networks:
       - routing-net
 
+  # Baixa o extrato do Brasil (Geofabrik) se necessário, importa com osm2pgsql
+  # e monta a topologia nacional na primeira subida; nas seguintes detecta que
+  # já está tudo no banco e sai em segundos. Nada precisa ser rodado à mão.
+  importer:
+    build: ./db          # mesma imagem do db: já tem osm2pgsql e cliente psql
+    image: routing-db
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGDATABASE: mydatabase
+      PGUSER: postgres
+      PGPASSWORD: ${DB_PASSWORD:-postgres}
+      OSM2PGSQL_CACHE: ${OSM2PGSQL_CACHE:-2048}
+      # URL do extrato do Brasil; usada apenas se o arquivo ainda não existir
+      # em ./data/brazil.osm.pbf. Sobrescreva no .env para fixar uma data
+      # (ex.: .../brazil-260805.osm.pbf) ou usar um espelho.
+      PBF_URL: ${PBF_URL:-https://download.geofabrik.de/south-america/brazil-latest.osm.pbf}
+    volumes:
+      # Pasta local (versionada vazia no repositório) onde o extrato é salvo.
+      # Se você já tem o brazil.osm.pbf, copie-o para ./data/ e o download
+      # é pulado.
+      - ./data:/data
+      - ./db/import/importar_brasil.sh:/importar_brasil.sh:ro
+    entrypoint: ["bash", "/importar_brasil.sh"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - routing-net
+
   backend:
     build: ./backend
     environment:
@@ -32,6 +63,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      importer:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     networks:

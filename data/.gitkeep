@@ -1,0 +1,2 @@
+# Pasta onde o serviço importer salva o extrato brazil.osm.pbf (~1,9 GB).
+# O arquivo em si é ignorado pelo git (.gitignore); apenas esta pasta é versionada.

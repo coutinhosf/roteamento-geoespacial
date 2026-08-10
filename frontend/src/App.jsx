@@ -85,6 +85,68 @@ function AddressInput({ label, value, onChange, onSelect, icon, color }) {
   )
 }
 
+/* Autocomplete de cidade (aba Cidades): mesmo Nominatim da aba de rota, mas
+   filtrando para municípios/limites administrativos, para o usuário ver e
+   escolher exatamente qual cidade vai ser preparada. */
+function CityInput({ value, onChange, onEnter }) {
+  const [suggestions, setSuggestions] = useState([])
+  const [loading, setLoading] = useState(false)
+  const timer = useRef(null)
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    onChange(v)
+    clearTimeout(timer.current)
+    if (v.length < 3) { setSuggestions([]); return }
+    timer.current = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`${API}/geocode?q=${encodeURIComponent(v)}`)
+        const data = await res.json()
+        const cidades = data.filter(s =>
+          (s.class === 'boundary' && s.type === 'administrative') ||
+          ['city', 'town', 'municipality', 'village'].includes(s.type)
+        )
+        setSuggestions((cidades.length ? cidades : data).slice(0, 5))
+      } catch {}
+      setLoading(false)
+    }, 400)
+  }
+
+  const select = (item) => {
+    onChange(item.display_name.split(',').slice(0, 2).join(','))
+    setSuggestions([])
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input value={value} onChange={handleChange}
+          onKeyDown={e => { if (e.key === 'Enter') { setSuggestions([]); onEnter() } }}
+          placeholder="Ex.: Monte Alegre de Minas"
+          style={{ width: '100%', padding: '10px 14px', background: 'var(--panel2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'DM Sans' }}
+          onFocus={e => e.target.style.borderColor = 'var(--accent)'}
+          onBlur={e => { e.target.style.borderColor = 'var(--border)'; setTimeout(() => setSuggestions([]), 200) }}
+        />
+        {loading && <div style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', width: 14, height: 14, border: '2px solid var(--border)', borderTopColor: 'var(--accent)', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />}
+      </div>
+      {suggestions.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 9999, background: 'var(--panel2)', border: '1px solid var(--border)', borderRadius: 8, marginTop: 4, overflow: 'hidden', boxShadow: '0 8px 24px rgba(0,0,0,0.4)' }}>
+          {suggestions.map((s, i) => (
+            <div key={i} onMouseDown={() => select(s)}
+              style={{ padding: '10px 14px', fontSize: 13, cursor: 'pointer', borderBottom: i < suggestions.length - 1 ? '1px solid var(--border)' : 'none' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--panel)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <div style={{ fontWeight: 500 }}>{s.display_name.split(',')[0]}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>{s.display_name.split(',').slice(1, 3).join(',')}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 const ALGORITMOS = [
   { id: 'dijkstra', label: 'Dijkstra', color: 'var(--accent)',  hex: '#00e5a0', desc: 'Clássico, sempre ótimo',   weight: 8,   opacity: 0.35 },
   { id: 'astar',    label: 'A*',       color: 'var(--accent2)', hex: '#0099ff', desc: 'Heurística geográfica',   weight: 5,   opacity: 0.7  },
@@ -819,13 +881,8 @@ export default function App() {
               <label style={{ fontSize: 11, fontFamily: 'Space Mono', color: 'var(--muted)', letterSpacing: 1, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
                 <span style={{ color: 'var(--accent)' }}>◆</span> Cidade
               </label>
-              <input value={cidadeNome}
-                onChange={e => setCidadeNome(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && prep?.status !== 'preparando') prepararCidade() }}
-                placeholder="Ex.: Monte Alegre de Minas"
-                style={{ width: '100%', padding: '10px 14px', background: 'var(--panel2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 14, outline: 'none', fontFamily: 'DM Sans' }}
-                onFocus={e => e.target.style.borderColor = 'var(--accent)'}
-                onBlur={e => e.target.style.borderColor = 'var(--border)'}
+              <CityInput value={cidadeNome} onChange={setCidadeNome}
+                onEnter={() => { if (prep?.status !== 'preparando') prepararCidade() }}
               />
             </div>
 

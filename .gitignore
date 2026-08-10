@@ -15,6 +15,7 @@ build/
 
 # Dados grandes (nao subir o PBF nem dumps)
 *.osm.pbf
+*.osm.pbf.part
 *.osm
 *.sql.gz
 *.backup
