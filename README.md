@@ -1,9 +1,7 @@
 # Sistema de Roteamento Geoespacial
 
 Sistema web para calculo de caminhos minimos sobre a malha viaria brasileira,
-comparando os algoritmos Dijkstra, A* e A* bidirecional. Desenvolvido como
-Trabalho de Conclusao de Curso (UFU).
-
+comparando os algoritmos Dijkstra, A* e A* bidirecional.
 ## Tecnologias
 
 - PostgreSQL + PostGIS + pgRouting
